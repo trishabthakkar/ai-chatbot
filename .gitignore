@@ -16,7 +16,8 @@ htmlcov/
 
 # Local configuration files (contains secrets)
 .env
-.env.local
+.env.*
+!.env.example
 
 # Operating System specific files
 .DS_Store

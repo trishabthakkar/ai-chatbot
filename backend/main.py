@@ -10,17 +10,16 @@ import json
 import logging
 import asyncio
 from dotenv import load_dotenv
-from google import genai
-from google.genai import types
+from openai import AsyncOpenAI
 
 # Load environment variables from .env file
 load_dotenv()
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("gemini-chatbot")
+logger = logging.getLogger("groq-chatbot")
 
-app = FastAPI(title="Gemini Chatbot API")
+app = FastAPI(title="Groq Chatbot API")
 
 # Setup CORS
 app.add_middleware(
@@ -31,36 +30,46 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Groq exposes an OpenAI-compatible endpoint, so we use the openai SDK pointed at
+# Groq's base URL. Swapping to OpenAI/OpenRouter/etc. later only requires changing
+# these two constants.
+GROQ_BASE_URL = "https://api.groq.com/openai/v1"
+MODEL = "llama-3.3-70b-versatile"
+
+
 class Message(BaseModel):
+    # Keep "model" in the schema so the existing frontend + localStorage continue
+    # to work without changes. We translate to OpenAI's "assistant" below.
     role: Literal["user", "model"]
     content: str = Field(..., min_length=1)
+
 
 class ChatRequest(BaseModel):
     history: List[Message]
 
+
 @app.post("/api/chat/stream")
 async def chat_stream(request: ChatRequest, http_request: Request):
-    api_key = os.getenv("GEMINI_API_KEY")
+    api_key = os.getenv("GROQ_API_KEY")
     if not api_key:
-        logger.error("GEMINI_API_KEY is not set.")
+        logger.error("GROQ_API_KEY is not set.")
         raise HTTPException(
             status_code=500,
-            detail="GEMINI_API_KEY environment variable is not set on the server."
+            detail="GROQ_API_KEY environment variable is not set on the server.",
         )
 
-    # Reformat history to google-genai format
-    contents = []
-    for msg in request.history:
-        contents.append(
-            types.Content(
-                role=msg.role,
-                parts=[types.Part.from_text(text=msg.content)]
-            )
-        )
+    # Map frontend roles ("model") to OpenAI-compatible roles ("assistant")
+    messages = [
+        {
+            "role": "assistant" if m.role == "model" else "user",
+            "content": m.content,
+        }
+        for m in request.history
+    ]
 
     async def event_generator():
         try:
-            # Handle mock-dev simulation mode
+            # Mock-dev mode: simulate streaming without any external API call
             if api_key == "mock-dev":
                 mock_text = (
                     "### Welcome to Mock Mode!\n\n"
@@ -74,7 +83,6 @@ async def chat_stream(request: ChatRequest, http_request: Request):
                     "```\n\n"
                     "The SSE connection is working flawlessly!"
                 )
-                # Stream word-by-word with delay to simulate typing
                 words = mock_text.split(" ")
                 for i, word in enumerate(words):
                     if await http_request.is_disconnected():
@@ -86,32 +94,35 @@ async def chat_stream(request: ChatRequest, http_request: Request):
                 yield "data: [DONE]\n\n"
                 return
 
-            # Initialize async client
-            client = genai.Client(api_key=api_key)
-            
-            # Request streaming from gemini-2.5-flash
-            response_stream = await client.aio.models.generate_content_stream(
-                model="gemini-2.5-flash",
-                contents=contents
+            # Real Groq call
+            client = AsyncOpenAI(api_key=api_key, base_url=GROQ_BASE_URL)
+            stream = await client.chat.completions.create(
+                model=MODEL,
+                messages=messages,
+                stream=True,
             )
-            
-            async for chunk in response_stream:
-                # If the client disconnected, we stop generating
+
+            async for chunk in stream:
                 if await http_request.is_disconnected():
                     logger.info("Client disconnected from SSE stream.")
                     break
-                
-                text = chunk.text
+
+                # OpenAI-style streaming chunks: choices[0].delta.content
+                if not chunk.choices:
+                    continue
+                delta = chunk.choices[0].delta
+                text = getattr(delta, "content", None)
                 if text:
                     yield f"data: {json.dumps({'text': text})}\n\n"
-                    
+
             yield "data: [DONE]\n\n"
-            
+
         except Exception as e:
             logger.error(f"Error during stream generation: {str(e)}")
             yield f"data: {json.dumps({'error': f'API Error: {str(e)}'})}\n\n"
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
+
 
 # Mount frontend files at root (/)
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -120,4 +131,6 @@ FRONTEND_DIR = BASE_DIR / "frontend"
 if FRONTEND_DIR.exists():
     app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")
 else:
-    logger.warning(f"Frontend directory {FRONTEND_DIR} does not exist yet. Static files will not be served.")
+    logger.warning(
+        f"Frontend directory {FRONTEND_DIR} does not exist yet. Static files will not be served."
+    )
