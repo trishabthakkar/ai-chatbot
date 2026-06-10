@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gemini Chatbot Dashboard</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    
+    <!-- PrismJS Dark Theme for syntax highlighting in code snippets -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
+    
+    <!-- Custom Style Sheet -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="logo-container">
+                    <div class="logo-icon"></div>
+                    <span class="logo-text">AetherChat</span>
+                </div>
+                <button class="new-chat-btn" id="new-chat-btn">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    <span>New Chat</span>
+                </button>
+            </div>
+            
+            <div class="search-container">
+                <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                <input type="text" id="chat-search" placeholder="Search conversations...">
+            </div>
+            
+            <div class="chats-list-container" id="chats-list">
+                <!-- Dynamically populated chats will appear here -->
+            </div>
+            
+            <div class="sidebar-footer">
+                <div class="model-badge">
+                    <span class="badge-dot animate-pulse"></span>
+                    <span class="badge-text">gemini-2.5-flash</span>
+                </div>
+                <button class="clear-all-btn" id="clear-all-btn" title="Clear all history">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                    <span>Clear All Chats</span>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Chat Dashboard -->
+        <main class="chat-dashboard">
+            <!-- Header -->
+            <header class="chat-header">
+                <button class="sidebar-toggle" id="sidebar-toggle" aria-label="Toggle Sidebar">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+                </button>
+                <div class="active-chat-info">
+                    <h2 id="active-chat-title">New Conversation</h2>
+                    <p class="connection-status"><span class="status-dot online"></span>Connected to API</p>
+                </div>
+                <div class="header-actions">
+                    <!-- Theme Toggle Placeholder or info -->
+                    <button class="icon-btn" id="api-status-check" title="Check connection status">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Messages Window -->
+            <div class="chat-window" id="chat-window">
+                <!-- Empty State (Intro Screen) -->
+                <div class="empty-state" id="empty-state">
+                    <div class="intro-brand">
+                        <div class="brand-logo"></div>
+                        <h1>Welcome to AetherChat</h1>
+                        <p>A high-performance chatbot interface powered by Google Gemini 2.5 Flash.</p>
+                    </div>
+                    <div class="suggestions-grid">
+                        <div class="suggestion-card" data-prompt="Explain Quantum Computing in simple terms">
+                            <h3>Quantum Physics</h3>
+                            <p>"Explain Quantum Computing in simple terms..."</p>
+                        </div>
+                        <div class="suggestion-card" data-prompt="Write a Python script to stream Server-Sent Events (SSE)">
+                            <h3>Coding Assistant</h3>
+                            <p>"Write a Python script to stream Server-Sent Events..."</p>
+                        </div>
+                        <div class="suggestion-card" data-prompt="Draft a polite email asking for feedback on a project implementation plan">
+                            <h3>Professional Writing</h3>
+                            <p>"Draft a polite email asking for feedback on a project..."</p>
+                        </div>
+                        <div class="suggestion-card" data-prompt="Give me 5 unique dinner recipes using chicken, broccoli, and rice">
+                            <h3>Daily Ideas</h3>
+                            <p>"Give me 5 unique dinner recipes using chicken, broccoli..."</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Chat Messages List -->
+                <div class="messages-list" id="messages-list" style="display: none;">
+                    <!-- Message items dynamically populated -->
+                </div>
+
+                <!-- Typing/Streaming Indicator -->
+                <div class="typing-indicator-container" id="typing-indicator" style="display: none;">
+                    <div class="avatar assistant-avatar">AI</div>
+                    <div class="typing-bubble">
+                        <span class="dot"></span>
+                        <span class="dot"></span>
+                        <span class="dot"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Input Bar -->
+            <footer class="chat-input-area">
+                <form class="input-form" id="chat-form">
+                    <div class="input-wrapper">
+                        <textarea 
+                            id="user-input" 
+                            placeholder="Type a message or paste code..." 
+                            rows="1" 
+                            maxlength="4000"
+                            required
+                        ></textarea>
+                        <button type="submit" class="send-btn" id="send-btn" aria-label="Send message">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                        </button>
+                    </div>
+                    <div class="input-info-row">
+                        <span id="char-counter">0 / 4000</span>
+                        <span>Press Enter to send, Shift+Enter for new line</span>
+                    </div>
+                </form>
+            </footer>
+        </main>
+    </div>
+
+    <!-- External CDNs for Markdown and Prism Highlighting -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
+    
+    <!-- Custom Application JS -->
+    <script src="app.js"></script>
+</body>
+</html>
